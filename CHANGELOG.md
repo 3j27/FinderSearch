@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.6 — 2026-10-11
+
+### Navigate and organize your sidebar
+
+- **Mouse navigation:** use the mouse’s Back and Forward buttons to navigate the active tab. Other buttons retain their existing behavior, and navigation pauses during sheets and file operations.
+- **Arrange Favorites:** drag sidebar favorites into your preferred order, including the standard folders, with a floating row preview and insertion marker. Release the mouse to place the folder, or press Esc to cancel. Order and removals persist across launches and stay synchronized between windows.
+- **Sidebar menus:** right-click a favorite to open it, open it in a new tab, reveal it in Finder, or remove the shortcut. Location menus offer the same navigation actions and Eject for removable volumes.
+
+Verified with 119 passing release-mode tests, including drag preview movement and cancellation. One pre-existing icon-grid layout test remains excluded after reproducing its failure on unchanged main.
+
 ## 0.4.5 — 2026-10-11
 
 ### Cut, paste, and keep your place

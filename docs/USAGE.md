@@ -228,3 +228,18 @@ Conflicts use the normal move dialog, and **Cmd+Z** undoes a completed move.
 Failed or skipped items remain pending for another paste. Copying something else
 cancels the pending cut. This cut intent applies within FinderSearch, including
 across its tabs and windows; other apps receive ordinary file URLs.
+
+### Mouse navigation and sidebar favorites
+
+Use your mouse’s Back and Forward buttons to navigate the current tab, just like
+the toolbar buttons. Standard side-button events are supported; a mouse utility
+that remaps them to another action may need its mapping adjusted.
+
+Drag folders within **Favorites** to reorder them. A floating row preview follows
+your mouse, and a blue insertion marker shows where it will land. Press **Esc**
+to cancel a drag. Right-click a favorite for
+**Open**, **Open in New Tab**, **Reveal in Finder**, or **Remove from Sidebar**.
+Removing a shortcut does not delete the folder. Your order and removals are saved
+and shared between windows. Existing custom favorites are retained on upgrade.
+To restore a removed folder, browse to it and choose **Add Folder to Sidebar**.
+Right-click locations for navigation actions and, where available, **Eject**.

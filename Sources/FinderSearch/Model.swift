@@ -815,8 +815,9 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
         didSet { observeSession(); saveSession() }
     }
     @Published var selectedTab = UUID()
-    @Published var favorites: [String] =
-        UserDefaults.standard.stringArray(forKey: "favorites") ?? []
+    @Published private(set) var favorites: [String] = []
+    private let favoritesDefaults: UserDefaults
+    private var favoritesObserver: AnyCancellable?
     @Published private(set) var volumes: [MountedVolume] = []
     @Published private(set) var ejectingVolumes: Set<String> = []
     private let volumeLoader: @Sendable () async throws -> [MountedVolume]
@@ -834,10 +835,19 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
         volumeEjector: @escaping @Sendable (URL) async throws -> Void = {
             try await MountedVolume.eject($0)
         },
-        sessionDefaults: UserDefaults? = nil
+        sessionDefaults: UserDefaults? = nil,
+        favoritesDefaults: UserDefaults = .standard
     ) {
         self.volumeLoader = volumeLoader; self.volumeEjector = volumeEjector
         self.sessionDefaults = sessionDefaults
+        self.favoritesDefaults = favoritesDefaults
+        favorites = FavoriteFolders.load(from: favoritesDefaults)
+        favoritesObserver = NotificationCenter.default.publisher(for: FavoriteFolders.changed)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let saved = FavoriteFolders.load(from: self.favoritesDefaults)
+                if self.favorites != saved { self.favorites = saved }
+            }
         if let data = sessionDefaults?.data(forKey: WorkspaceSession.key),
             let state = try? JSONDecoder().decode(WorkspaceSession.self, from: data),
             !state.tabs.isEmpty, state.tabs.count <= 50
@@ -869,13 +879,25 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
         if !tabs.contains(where: { $0.id == selectedTab }) { selectedTab = tabs[0].id }
     }
     func addFavorite(_ url: URL) {
-        if !favorites.contains(url.path) {
-            favorites.append(url.path); UserDefaults.standard.set(favorites, forKey: "favorites")
+        guard url.isFileURL else { return }
+        if !favorites.contains(url.standardizedFileURL.path) {
+            favorites.append(url.standardizedFileURL.path); saveFavorites()
         }
     }
     func removeFavorite(_ path: String) {
         favorites.removeAll { $0 == path };
-        UserDefaults.standard.set(favorites, forKey: "favorites")
+        saveFavorites()
+    }
+    func moveFavorites(from offsets: IndexSet, to destination: Int) {
+        guard !offsets.isEmpty, offsets.allSatisfy({ favorites.indices.contains($0) }),
+            (0...favorites.count).contains(destination)
+        else { return }
+        favorites.move(fromOffsets: offsets, toOffset: destination)
+        saveFavorites()
+    }
+    private func saveFavorites() {
+        favoritesDefaults.set(favorites, forKey: FavoriteFolders.key)
+        NotificationCenter.default.post(name: FavoriteFolders.changed, object: nil)
     }
     func refreshVolumes() {
         volumeTask?.cancel(); volumeGeneration += 1

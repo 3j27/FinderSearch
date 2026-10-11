@@ -143,6 +143,8 @@ struct BrowserView: View {
                     fileNavigationActive = false; model.sidebar(route)
                 },
                 removeFavorite: { workspace.removeFavorite($0) },
+                moveFavorites: { workspace.moveFavorites(from: $0, to: $1) },
+                openInNewTab: { workspace.newTab($0) },
                 eject: { volume in workspace.eject(volume) { model.error = $0 } }
             ).equatable()
         } detail: {
@@ -227,6 +229,13 @@ struct BrowserView: View {
             .onSubmit(of: .search) { model.submitSearch() }
         }
         .background(BrowserWindowCapture { browserWindow = $0 }.frame(width: 0, height: 0))
+        .background(
+            MouseNavigationTarget { command in
+                guard !model.busy, model.preview == nil else { return false }
+                if command == .back { model.goBack() } else { model.goForward() }
+                return true
+            }.frame(width: 0, height: 0)
+        )
         .onAppear {
             model.start()
             installKeyMonitor()
