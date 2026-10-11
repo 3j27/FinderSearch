@@ -5,6 +5,7 @@ import AppKit
 /// when hundreds of search results are replaced by a cached folder listing.
 @MainActor struct FileList: NSViewRepresentable {
     @ObservedObject var model: SearchModel
+    @ObservedObject private var clipboard = FileClipboard.shared
     let focusFiles: () -> Void
     let newTab: (URL) -> Void
     var addFavorite: (URL) -> Void = { _ in }
@@ -79,6 +80,17 @@ import AppKit
             table.marquee.configure(
                 model: parent.model, identity: parent.model.route + ":" + parent.model.query)
             table.marquee.focusFiles = parent.focusFiles
+            // Update existing cells without reloading rows or interrupting editing.
+            let visible = table.rows(in: table.visibleRect)
+            if visible.location != NSNotFound {
+                for row in visible.location..<NSMaxRange(visible) where items.indices.contains(row)
+                {
+                    for column in 0..<table.numberOfColumns {
+                        table.view(atColumn: column, row: row, makeIfNecessary: false)?.alphaValue =
+                            parent.clipboard.opacity(for: items[row].path)
+                    }
+                }
+            }
             let switchingTab = displayedTab != parent.model.id
             if switchingTab {
                 renameField?.cancelEditing(); renameField = nil
@@ -177,6 +189,7 @@ import AppKit
                 tableView.makeView(withIdentifier: tableColumn.identifier, owner: self) as? FileCell
                 ?? FileCell(identifier: tableColumn.identifier, withIcon: key == "name")
             cell.path = hit.path
+            cell.alphaValue = parent.clipboard.opacity(for: hit.path)
             switch key {
             case "name": cell.textField?.stringValue = hit.name
             case "modified":
@@ -349,6 +362,7 @@ import AppKit
             add("Extract ZIP", enabled: !model.busy && hit.url.pathExtension.lowercased() == "zip")
             { model.extract() }
             add("Duplicate", enabled: !model.busy) { model.duplicate() }
+            add("Cut", enabled: !model.busy) { model.cut() }
             add("Copy") { model.copy() }
             add("Copy Path") { model.copyPath() }
             let tags = NSMenu(); tags.autoenablesItems = false

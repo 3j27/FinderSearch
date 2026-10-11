@@ -41,6 +41,7 @@ import UniformTypeIdentifiers
                 }.keyboardShortcut("z", modifiers: [.command, .shift])
             }
             CommandGroup(replacing: .pasteboard) {
+                Button("Cut") { textOrFile("cut:") { model?.cut() } }.keyboardShortcut("x")
                 Button("Copy") { textOrFile("copy:") { model?.copy() } }.keyboardShortcut("c")
                 Button("Paste Items") { textOrFile("paste:") { model?.paste() } }.keyboardShortcut(
                     "v")
@@ -397,6 +398,7 @@ struct BrowserView: View {
             FileNameLabel(model: model, hit: hit, lineLimit: 2, centered: true)
                 .frame(height: 32, alignment: .top)
         }
+        .modifier(CutAppearance(path: hit.path))
         .padding(6).frame(maxWidth: .infinity)
         .background(
             model.selection.contains(hit.path) ? Color.accentColor.opacity(0.22) : Color.clear,
@@ -514,6 +516,7 @@ struct BrowserView: View {
         Button("Quick Look") { model.preview = model.selected }.disabled(model.selection.isEmpty)
         Button("Rename…") { model.renameItems() }.disabled(model.selection.isEmpty || model.busy)
         Button("Duplicate") { model.duplicate() }.disabled(model.selection.isEmpty || model.busy)
+        Button("Cut") { model.cut() }.disabled(model.selection.isEmpty || model.busy)
         Button("Copy") { model.copy() }.disabled(model.selection.isEmpty)
         Button("Copy Path") { model.copyPath() }.disabled(model.selection.isEmpty)
         Button("Paste Items") { model.paste() }.disabled(model.busy || !model.canWriteHere)

@@ -82,7 +82,10 @@ extension SearchModel {
             conflict = FileConflict(source: candidate.source, destination: candidate.destination)
         }
     }
-    func transfer(_ urls: [URL], to folder: URL, move: Bool) {
+    func transfer(
+        _ urls: [URL], to folder: URL, move: Bool,
+        completion: (([FileMutation]) -> Void)? = nil
+    ) {
         guard !busy, !urls.isEmpty else { return }
         busy = true; error = nil; allConflictChoice = nil
         operationName = move ? "Move" : "Copy"
@@ -121,7 +124,9 @@ extension SearchModel {
                                 : .copy(candidate.source, destination))
                 }
                 busy = false; operationProgress = nil
-                if !operations.isEmpty { perform(operations, name: move ? "Move" : "Copy") }
+                if !operations.isEmpty {
+                    perform(operations, name: move ? "Move" : "Copy", completion: completion)
+                }
             } catch is CancellationError {
                 resolveConflict(.cancel); busy = false; operationProgress = nil
             } catch {

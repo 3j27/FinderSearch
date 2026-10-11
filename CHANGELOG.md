@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.5 — 2026-10-11
+
+### Cut, paste, and keep your place
+
+- **Cut text again:** Cmd+X works in the search field and other text editors.
+- **Move files with Cmd+X → Cmd+V:** cut files and folders, then paste them into another location, tab, or window. Items stay put until the move succeeds, with conflict handling and Undo available.
+- **See what is cut:** pending items appear dimmed in icon, list, column, and gallery views. Pasting or copying something else clears the dimming; failed or skipped items remain ready to retry.
+- **Keep your clipboard safe:** copying an empty selection leaves it intact, and finishing a move never replaces something you copied afterward.
+
+### More reliable cloud-folder indexing
+
+- **Recover after granting Full Disk Access:** restart this installation’s restricted search daemon once per app session so previously skipped folders, including `~/Library/CloudStorage`, can be rescanned. The existing index is preserved, and other fsearch installations are left alone.
+- Clarify Dropbox setup and cloud-only folder limitations in the usage guide. Folders must be locally enumerable; indexing does not intentionally download cloud file contents.
+
+Verified with 115 passing tests and manual checks of text cutting, file/folder moves, Undo, and cut appearance in all four views.
+
 ## 0.4.3 — 2026-10-10
 
 - **Faster folder loading:** bulk metadata reads are ~14× faster for regular files and ~36× faster for APFS subfolders; subfolder listing plus sorting is ~8× faster.

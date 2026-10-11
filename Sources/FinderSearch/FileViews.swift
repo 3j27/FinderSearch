@@ -3,6 +3,15 @@ import AppKit
 import QuickLookThumbnailing
 import UniformTypeIdentifiers
 
+/// Dim content only: selection backgrounds and hit targets stay unchanged.
+@MainActor struct CutAppearance: ViewModifier {
+    let path: String
+    @ObservedObject private var clipboard = FileClipboard.shared
+    func body(content: Content) -> some View {
+        content.opacity(clipboard.opacity(for: path))
+    }
+}
+
 /// Independent recognizers select on the first click without waiting for the
 /// system double-click interval. Double-clicking still opens the item.
 struct FileClickActions: ViewModifier {
@@ -164,10 +173,12 @@ struct GalleryBrowser<RowMenu: View>: View {
         VStack(spacing: 0) {
             if let hit = model.selected ?? model.sortedHits.first {
                 QuickLook(url: hit.url).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .modifier(CutAppearance(path: hit.path))
                 HStack {
                     Text(hit.name).fontWeight(.medium); Spacer();
                     Text(hit.typeName).foregroundStyle(.secondary)
-                }.font(.system(size: 12)).padding(.horizontal, 20).padding(.vertical, 8)
+                }.modifier(CutAppearance(path: hit.path))
+                    .font(.system(size: 12)).padding(.horizontal, 20).padding(.vertical, 8)
             }
             Divider()
             ScrollViewReader { proxy in
@@ -178,7 +189,7 @@ struct GalleryBrowser<RowMenu: View>: View {
                                 FileThumbnail(hit: hit, size: 64);
                                 FileNameLabel(model: model, hit: hit, centered: true).frame(
                                     width: 100)
-                            }.padding(7)
+                            }.modifier(CutAppearance(path: hit.path)).padding(7)
                                 .background(
                                     model.selection.contains(hit.path)
                                         ? Color.accentColor.opacity(0.22) : Color.clear,
@@ -238,7 +249,10 @@ struct ColumnBrowser<RowMenu: View>: View {
                                                         .system(size: 9)
                                                     ).foregroundStyle(.secondary)
                                                 }
-                                            }.frame(maxWidth: .infinity).contentShape(Rectangle())
+                                            }.modifier(CutAppearance(path: hit.path))
+                                                .frame(maxWidth: .infinity).contentShape(
+                                                    Rectangle()
+                                                )
                                                 .tag(
                                                     hit.path
                                                 ).contextMenu { rowMenu(hit) }.draggable(hit.url)

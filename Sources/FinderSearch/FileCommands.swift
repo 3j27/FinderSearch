@@ -53,21 +53,26 @@ extension SearchModel {
         }
     }
     func trash() { perform(selectedItems.map { .trash($0.url) }, name: "Move to Trash") }
-    func copy() {
-        NSPasteboard.general.clearContents();
-        NSPasteboard.general.writeObjects(selectedItems.map { $0.url as NSURL })
+    func copy(clipboard: FileClipboard? = nil) {
+        (clipboard ?? .shared).write(selectedItems.map(\.url), cut: false)
+    }
+    func cut(clipboard: FileClipboard? = nil) {
+        guard !busy else { return }
+        (clipboard ?? .shared).write(selectedItems.map(\.url), cut: true)
     }
     func copyPath() {
         NSPasteboard.general.clearContents();
         NSPasteboard.general.setString(
             selectedItems.map(\.path).joined(separator: "\n"), forType: .string)
+        FileClipboard.shared.refresh()
     }
-    func paste(move: Bool = false) {
-        guard canWriteHere else { return }
-        let urls =
-            NSPasteboard.general.readObjects(
-                forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        transfer(urls, to: location, move: move)
+    func paste(move: Bool = false, clipboard: FileClipboard? = nil) {
+        guard canWriteHere, !busy else { return }
+        let clipboard = clipboard ?? .shared
+        let changeCount = clipboard.pasteboard.changeCount
+        transfer(clipboard.urls, to: location, move: move || clipboard.isCut) { successful in
+            clipboard.finish(successful, changeCount: changeCount)
+        }
     }
     func info() {
         guard let hit = selected else { return }

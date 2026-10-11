@@ -35,6 +35,7 @@ final class Engine: SearchService, @unchecked Sendable {
     private let queue = DispatchQueue(label: "FinderSearch.engine", qos: .userInitiated)
     private let binaryOverride: String?
     init(binary: String? = nil) { binaryOverride = binary }
+    private var connectedBinary: String?
     private var process: Process?
     private var input: FileHandle?
     private var output: FileHandle?
@@ -61,11 +62,15 @@ final class Engine: SearchService, @unchecked Sendable {
         else {
             throw Failure.message("Search engine missing. Run scripts/build.sh to bundle fsearch.")
         }
+        // A restarted shared daemon can close another tab's helper pipe.
+        // Surface a write failure instead of terminating the app.
+        signal(SIGPIPE, SIG_IGN)
         let p = Process(), stdin = Pipe(), stdout = Pipe()
         p.executableURL = URL(fileURLWithPath: binary)
         p.arguments = ["stdio"]
         p.standardInput = stdin; p.standardOutput = stdout; p.standardError = FileHandle.nullDevice
         try p.run()
+        connectedBinary = binary
         process = p; input = stdin.fileHandleForWriting; output = stdout.fileHandleForReading
         buffer.removeAll()
     }
@@ -84,42 +89,52 @@ final class Engine: SearchService, @unchecked Sendable {
             try await withCheckedThrowingContinuation { continuation in
                 queue.async {
                     do {
-                        try cancellation.check()
-                        try self.connect()
-                        let data = try JSONSerialization.data(withJSONObject: fields)
-                        try self.input?.write(contentsOf: data + Data([10]))
-                        guard let output = self.output else {
-                            throw Failure.message("Engine disconnected.")
-                        }
-                        let deadline = Date().addingTimeInterval(15)
-                        while !self.buffer.contains(10) {
+                        for attempt in 0..<2 {
                             try cancellation.check()
-                            let remaining = deadline.timeIntervalSinceNow
-                            guard remaining > 0 else {
-                                throw Failure.message("Search engine timed out. Try again.")
+                            try self.connect()
+                            let data = try JSONSerialization.data(withJSONObject: fields)
+                            try self.input?.write(contentsOf: data + Data([10]))
+                            guard let output = self.output else {
+                                throw Failure.message("Engine disconnected.")
                             }
-                            var fd = pollfd(
-                                fd: output.fileDescriptor, events: Int16(POLLIN), revents: 0)
-                            let result = poll(&fd, 1, Int32(min(remaining, 0.1) * 1000))
-                            if result == 0 { continue }
-                            guard result > 0 else {
-                                throw Failure.message("Search engine timed out. Try again.")
+                            let deadline = Date().addingTimeInterval(15)
+                            while !self.buffer.contains(10) {
+                                try cancellation.check()
+                                let remaining = deadline.timeIntervalSinceNow
+                                guard remaining > 0 else {
+                                    throw Failure.message("Search engine timed out. Try again.")
+                                }
+                                var fd = pollfd(
+                                    fd: output.fileDescriptor, events: Int16(POLLIN), revents: 0)
+                                let result = poll(&fd, 1, Int32(min(remaining, 0.1) * 1000))
+                                if result == 0 { continue }
+                                guard result > 0 else {
+                                    throw Failure.message("Search engine timed out. Try again.")
+                                }
+                                let chunk = output.availableData
+                                guard !chunk.isEmpty else {
+                                    throw Failure.message("Search engine stopped. Try again.")
+                                }
+                                self.buffer.append(chunk)
                             }
-                            let chunk = output.availableData
-                            guard !chunk.isEmpty else {
-                                throw Failure.message("Search engine stopped. Try again.")
+                            try cancellation.check()
+                            let newline = self.buffer.firstIndex(of: 10)!
+                            let line = self.buffer.prefix(upTo: newline)
+                            self.buffer.removeSubrange(...newline)
+                            let reply = try JSONDecoder().decode(Reply.self, from: line)
+                            if attempt == 0, fields["op"] as? String == "status",
+                                reply.full_disk_access == false, FullDiskAccess.isGranted(),
+                                let binary = self.connectedBinary,
+                                try RestrictedDaemon.recover(binary: binary)
+                            {
+                                self.disconnect()
+                                continue
                             }
-                            self.buffer.append(chunk)
+                            continuation.resume(returning: reply)
+                            return
                         }
-                        try cancellation.check()
-                        let newline = self.buffer.firstIndex(of: 10)!
-                        let line = self.buffer.prefix(upTo: newline)
-                        self.buffer.removeSubrange(...newline)
-                        continuation.resume(
-                            returning: try JSONDecoder().decode(Reply.self, from: line))
                     } catch {
-                        self.process?.terminate(); self.process = nil
-                        self.input = nil; self.output = nil; self.buffer.removeAll()
+                        self.disconnect()
                         continuation.resume(throwing: error)
                     }
                 }
@@ -127,6 +142,10 @@ final class Engine: SearchService, @unchecked Sendable {
         } onCancel: {
             cancellation.cancel()
         }
+    }
+    private func disconnect() {
+        process?.terminate(); process = nil
+        input = nil; output = nil; buffer.removeAll()
     }
     deinit { process?.terminate() }
 }

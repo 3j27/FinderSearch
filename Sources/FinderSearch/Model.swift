@@ -610,7 +610,7 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
     }
     func perform(
         _ operations: [FileMutation], name: String, history: Int = 0,
-        renameCreated: URL? = nil
+        renameCreated: URL? = nil, completion: (([FileMutation]) -> Void)? = nil
     ) {
         guard !operations.isEmpty, !busy else { return }; busy = true; error = nil
         cancelRename()
@@ -655,6 +655,7 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
             for failed in result.failed {
                 if let index = successful.firstIndex(of: failed) { successful.remove(at: index) }
             }
+            completion?(successful)
             hits = OptimisticFiles.applying(successful, to: originalHits, in: folder)
             visibleCache = OptimisticFiles.applying(successful, to: originalOrder, in: folder)
             extraHits = OptimisticFiles.applying(successful, to: originalExtra, in: nil)
