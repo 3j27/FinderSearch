@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 
-/// A daemon keeps its startup permission restrictions across app launches.
+/// A daemon keeps its executable and startup permissions across app launches.
 /// Restart only our own executable; the shared index is preserved and fsearch
 /// rescans previously skipped folders when it starts with Full Disk Access.
 enum RestrictedDaemon {
@@ -11,7 +11,8 @@ enum RestrictedDaemon {
     static func recover(
         binary: String,
         directory: URL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/FSearch")
+            .appendingPathComponent("Library/Application Support/FSearch"),
+        ifStartedBefore replacementDate: Date? = nil
     ) throws -> Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -39,12 +40,22 @@ enum RestrictedDaemon {
             .path
         let expected = URL(fileURLWithPath: binary).resolvingSymlinksInPath().path
         guard actual == expected else { return false }
+        if let replacementDate {
+            var info = proc_bsdinfo()
+            let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+            guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else {
+                return false
+            }
+            let started = TimeInterval(info.pbi_start_tvsec)
+                + TimeInterval(info.pbi_start_tvusec) / 1_000_000
+            guard started < replacementDate.timeIntervalSince1970 else { return false }
+        }
         // A helper may have a separate permission grant. Never restart it in a
         // loop if it still reports restricted access after this one attempt.
         guard attempted.insert(expected).inserted else { return false }
         guard kill(pid, SIGTERM) == 0 || errno == ESRCH else {
             throw Engine.Failure.message(
-                "Could not restart the search engine after Full Disk Access changed.")
+                "Could not restart the search engine. Try again shortly.")
         }
         let deadline = ProcessInfo.processInfo.systemUptime + 3
         repeat {

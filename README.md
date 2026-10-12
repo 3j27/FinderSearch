@@ -79,6 +79,6 @@ Slow disks and cloud providers can still take time.
 ## License & credits
 
 [MIT](LICENSE). The search engine is [fsearch](https://github.com/noahdunnagan/fsearch)
-by [Noah Dunnagan](https://github.com/noahdunnagan), vendored unmodified under its
-MIT license. FinderSearch adds the native interface and file workflows.
+by [Noah Dunnagan](https://github.com/noahdunnagan), vendored unmodified at v0.2.0
+under its MIT license. FinderSearch adds the native interface and file workflows.
 See [third-party notices](THIRD_PARTY_NOTICES.md).

@@ -62,6 +62,13 @@ final class Engine: SearchService, @unchecked Sendable {
         else {
             throw Failure.message("Search engine missing. Run scripts/build.sh to bundle fsearch.")
         }
+        // Upstream stdio reuses any running daemon, even after its executable
+        // was replaced. Restart our own outdated helper before connecting.
+        if let modified = try URL(fileURLWithPath: binary).resourceValues(
+            forKeys: [.contentModificationDateKey]).contentModificationDate
+        {
+            _ = try RestrictedDaemon.recover(binary: binary, ifStartedBefore: modified)
+        }
         // A restarted shared daemon can close another tab's helper pipe.
         // Surface a write failure instead of terminating the app.
         signal(SIGPIPE, SIG_IGN)

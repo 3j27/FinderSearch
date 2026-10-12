@@ -42,8 +42,17 @@ final class RestrictedDaemonTests: XCTestCase {
         var executable = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
         XCTAssertGreaterThan(
             proc_pidpath(child.processIdentifier, &executable, UInt32(executable.count)), 0)
+        // A current daemon must survive reconnects; replacing the helper
+        // after its startup must restart it without deleting the index.
+        XCTAssertFalse(
+            try RestrictedDaemon.recover(
+                binary: String(cString: executable), directory: directory,
+                ifStartedBefore: Date(timeIntervalSince1970: 0)))
+        XCTAssertTrue(child.isRunning)
         XCTAssertTrue(
-            try RestrictedDaemon.recover(binary: String(cString: executable), directory: directory))
+            try RestrictedDaemon.recover(
+                binary: String(cString: executable), directory: directory,
+                ifStartedBefore: Date()))
         child.waitUntilExit()
         XCTAssertEqual(try Data(contentsOf: index), contents)
     }

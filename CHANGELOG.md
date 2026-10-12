@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Upgrade to fsearch 0.2: more accurate results, smaller indexes, and better efficiency.
+
 ## 0.4.7 — 2026-10-12
 
 - Fix editing shortcuts in Go to Folder.

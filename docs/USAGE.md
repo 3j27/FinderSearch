@@ -64,6 +64,8 @@ previously skipped folders. A daemon belonging to another fsearch installation
 is left running; quit that installation before reopening FinderSearch.
 
 The first launch builds an index; searches become available as indexing progresses.
+Updating to fsearch 0.2 automatically rebuilds the older index format. FinderSearch
+restarts its own daemon when the helper has been replaced since that daemon started.
 The engine keeps its index in `~/Library/Application Support/FSearch`, and its daemon
 can remain running after the UI closes. The app does not install a login item.
 Searches and file data stay on the Mac; the app does not upload them.
@@ -208,7 +210,7 @@ Full keyboard/multi-drag parity remains in progress.
 
 The search engine is [fsearch](https://github.com/noahdunnagan/fsearch), created by
 **Noah Dunnagan**, distributed under the MIT license and vendored unmodified at
-`af9476d39ec98108552670adf6badbbd77331b0a`.
+`e96ebeb52545ea4facd4a4b3af393c42c980fb5d`.
 See [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) and [its license](../vendor/fsearch/LICENSE).
 
 ### Drag selection
