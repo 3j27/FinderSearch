@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.7 — 2026-10-12
+
+- Fix editing shortcuts in Go to Folder.
+- Show colored tags in every view and preserve their colors through Undo.
+- Add folders to Favorites by dropping them onto the sidebar.
+- Refresh bundle icon registration after updates.
+
 ## 0.4.6 — 2026-10-11
 
 - Fix mouse Back/Forward buttons.

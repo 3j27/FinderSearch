@@ -10,11 +10,7 @@ import UniformTypeIdentifiers
     var body: some Scene {
         WindowGroup(id: "browser") {
             BrowserRoot().frame(minWidth: 850, minHeight: 470).onAppear {
-                if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
-                    let icon = NSImage(contentsOf: url)
-                {
-                    NSApp.applicationIconImage = icon
-                }
+                ApplicationIcon.registerBundle()
                 NSApp.setActivationPolicy(.regular); NSApp.activate(ignoringOtherApps: true)
             }
         }
@@ -145,6 +141,7 @@ struct BrowserView: View {
                 removeFavorite: { workspace.removeFavorite($0) },
                 moveFavorites: { workspace.moveFavorites(from: $0, to: $1) },
                 openInNewTab: { workspace.newTab($0) },
+                addFavoriteFolders: { await workspace.addFavoriteFolders($0) },
                 eject: { volume in workspace.eject(volume) { model.error = $0 } }
             ).equatable()
         } detail: {

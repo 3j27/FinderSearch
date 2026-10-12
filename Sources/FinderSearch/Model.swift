@@ -218,7 +218,7 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
     private var watchGeneration = 0
     private var watcher: DispatchSourceFileSystemObject?
     private var metadata: NSMetadataQuery?
-    private var metadataObserver: NSObjectProtocol?
+    private var metadataObservers: [NSObjectProtocol] = []
     var canWriteHere: Bool { !isSearch && route != "recents" && !route.hasPrefix("tag:") }
     var isSearch: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     var title: String {
@@ -375,6 +375,9 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
         let searchingNow = isSearch
         let cached = !searchingNow && restoreDefaultSnapshot()
         if route.hasPrefix("tag:") && !isSearch { loadTag(String(route.dropFirst(4))); return }
+        metadata?.stop(); metadata = nil
+        metadataObservers.forEach(NotificationCenter.default.removeObserver)
+        metadataObservers = []
         let folder = location, hidden = showHidden, text = query, searchScope = scope,
             type = fileType
         let recent = route == "recents" && !isSearch
@@ -655,6 +658,12 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
             for failed in result.failed {
                 if let index = successful.firstIndex(of: failed) { successful.remove(at: index) }
             }
+            FileTagCache.shared.invalidate(
+                Set(
+                    successful.compactMap { operation in
+                        if case .tags(let url, _) = operation { return url.path }
+                        return nil
+                    }))
             completion?(successful)
             hits = OptimisticFiles.applying(successful, to: originalHits, in: folder)
             visibleCache = OptimisticFiles.applying(successful, to: originalOrder, in: folder)
@@ -757,32 +766,38 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
     }
     private func loadTag(_ name: String) {
         metadata?.stop();
-        if let metadataObserver { NotificationCenter.default.removeObserver(metadataObserver) }
+        metadataObservers.forEach(NotificationCenter.default.removeObserver)
+        metadataObservers = []
         generation += 1; let token = generation
         searching = false; loading = !restoreDefaultSnapshot(); if loading { hits = [] };
         selection = []
         let q = NSMetadataQuery(); q.searchScopes = [NSHomeDirectory()];
         q.predicate = NSPredicate(format: "kMDItemUserTags LIKE %@", name + "*")
-        metadataObserver = NotificationCenter.default.addObserver(
-            forName: .NSMetadataQueryDidFinishGathering, object: q, queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, self.generation == token, self.route == "tag:" + name,
-                    !self.isSearch, let query = self.metadata
-                else { return }
-                query.disableUpdates()
-                let paths = query.results.compactMap { value -> String? in
-                    guard let item = value as? NSMetadataItem,
-                        let path = item.value(forAttribute: NSMetadataItemPathKey) as? String
-                    else { return nil }; return path
+        metadataObservers = [
+            Notification.Name.NSMetadataQueryDidFinishGathering, .NSMetadataQueryDidUpdate,
+        ].map { notification in
+            NotificationCenter.default.addObserver(
+                forName: notification, object: q, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self, self.generation == token, self.route == "tag:" + name,
+                        !self.isSearch, let query = self.metadata
+                    else { return }
+                    query.disableUpdates()
+                    let paths = query.results.compactMap { value -> String? in
+                        guard let item = value as? NSMetadataItem,
+                            let path = item.value(forAttribute: NSMetadataItemPathKey) as? String
+                        else { return nil }; return path
+                    }
+                    query.enableUpdates()
+                    self.loadTagResults(paths, token: token)
                 }
-                query.stop()
-                self.loadTagResults(paths, token: token)
             }
         }
         metadata = q; q.start()
     }
     private func loadTagResults(_ paths: [String], token: Int) {
+        task?.cancel()
         task = Task {
             do {
                 let result = try await BackgroundWork.run {
@@ -793,6 +808,7 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
                 }
                 guard generation == token, !Task.isCancelled else { return }
                 hits = result
+                selection.formIntersection(Set(result.map(\.path)))
                 loading = false
                 // The normal presentation task sorts and saves the snapshot.
             } catch is CancellationError {} catch {
@@ -806,7 +822,8 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
         preparationTask?.cancel(); operationControl?.cancel()
         watchRefresh?.cancel(); watcher?.cancel();
         metadata?.stop();
-        if let metadataObserver { NotificationCenter.default.removeObserver(metadataObserver) }
+        metadataObservers.forEach(NotificationCenter.default.removeObserver)
+        metadataObservers = []
     }
 }
 
@@ -883,6 +900,15 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
         if !favorites.contains(url.standardizedFileURL.path) {
             favorites.append(url.standardizedFileURL.path); saveFavorites()
         }
+    }
+    @discardableResult func addFavoriteFolders(_ urls: [URL]) async -> Bool {
+        let folders =
+            (try? await BackgroundWork.run { FavoriteFolders.existingDirectories(urls) }) ?? []
+        guard !folders.isEmpty else { return false }
+        var seen = Set(favorites)
+        let added = folders.map(\.path).filter { seen.insert($0).inserted }
+        if !added.isEmpty { favorites.append(contentsOf: added); saveFavorites() }
+        return true
     }
     func removeFavorite(_ path: String) {
         favorites.removeAll { $0 == path };

@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 enum SidebarTags {
     static let values: [(String, Color)] = [
@@ -27,6 +28,19 @@ enum FavoriteFolders {
             URL(fileURLWithPath: $0).standardizedFileURL.path
         }
         .filter { seen.insert($0).inserted }
+    }
+
+    static func existingDirectories(_ urls: [URL]) -> [URL] {
+        var seen = Set<String>()
+        return urls.compactMap { url in
+            guard url.isFileURL else { return nil }
+            let url = url.standardizedFileURL
+            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey]),
+                values.isDirectory == true, values.isPackage != true,
+                seen.insert(url.path).inserted
+            else { return nil }
+            return url
+        }
     }
 
     static func label(for path: String) -> (name: String, symbol: String) {
@@ -77,6 +91,8 @@ struct BrowserSidebar: View, Equatable {
     let removeFavorite: (String) -> Void
     let moveFavorites: (IndexSet, Int) -> Void
     let openInNewTab: (URL) -> Void
+    let addFavoriteFolders: ([URL]) async -> Bool
+    @State private var folderDropTargeted = false
     let eject: (MountedVolume) -> Void
     private let home = NSHomeDirectory()
 
@@ -165,6 +181,15 @@ struct BrowserSidebar: View, Equatable {
         // rather than the previous row index retained by AppKit.
         .id(state.favorites)
         .listStyle(.sidebar)
+        .onDrop(of: [UTType.fileURL], isTargeted: $folderDropTargeted) { providers in
+            FavoriteFolderDrop.perform(providers, add: addFavoriteFolders)
+        }
+        .overlay {
+            if folderDropTargeted {
+                RoundedRectangle(cornerRadius: 8).stroke(Color.accentColor, lineWidth: 2)
+                    .padding(4).allowsHitTesting(false)
+            }
+        }
         .navigationSplitViewColumnWidth(min: 170, ideal: 208, max: 280)
         .safeAreaInset(edge: .bottom) {
             if state.showDiskAccessHint {

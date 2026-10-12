@@ -206,6 +206,7 @@ import AppKit
             cell.textField?.textColor = key == "name" ? .labelColor : .secondaryLabelColor
             cell.textField?.alignment = key == "size" ? .right : .left
             if key == "name" {
+                cell.tagView?.configure(hit.metadataPending == true ? nil : hit.url)
                 cell.imageView?.image = FileIcons.shared.placeholder(hit, size: .row)
                 cell.iconTask?.cancel()
                 guard hit.metadataPending != true else { cell.iconTask = nil; return cell }
@@ -370,6 +371,11 @@ import AppKit
                 let item = NSMenuItem(
                     title: name, action: #selector(runMenuAction(_:)), keyEquivalent: "")
                 item.target = self; item.tag = actions.count; item.isEnabled = !model.busy;
+                item.state =
+                    model.selectedItems.allSatisfy {
+                        FileTagCache.shared.cached($0.url)?.contains(where: { $0.name == name })
+                            == true
+                    } ? .on : .off;
                 actions[item.tag] = { model.tag(name) }; tags.addItem(item)
             }
             let tagItem = NSMenuItem(title: "Tags", action: nil, keyEquivalent: "");
@@ -399,6 +405,7 @@ import AppKit
 @MainActor final class FileCell: NSTableCellView {
     var path = ""
     var iconTask: Task<Void, Never>?
+    private(set) var tagView: FileTagView?
     init(identifier: NSUserInterfaceItemIdentifier, withIcon: Bool) {
         super.init(frame: .zero); self.identifier = identifier
         let text = RenameTextField(labelWithString: ""); text.font = .systemFont(ofSize: 12);
@@ -418,9 +425,20 @@ import AppKit
             ])
             leading = icon.trailingAnchor
         }
+        var trailing = trailingAnchor
+        if withIcon {
+            let tags = FileTagView(); tags.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(tags); tagView = tags
+            NSLayoutConstraint.activate([
+                tags.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+                tags.centerYAnchor.constraint(equalTo: centerYAnchor),
+                tags.heightAnchor.constraint(equalToConstant: 10),
+            ])
+            trailing = tags.leadingAnchor
+        }
         NSLayoutConstraint.activate([
             text.leadingAnchor.constraint(equalTo: leading, constant: 6),
-            text.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            text.trailingAnchor.constraint(equalTo: trailing, constant: -8),
             text.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }

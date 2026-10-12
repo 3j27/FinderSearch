@@ -40,7 +40,8 @@ import AppKit
     private func requestFocus() {
         DispatchQueue.main.async { [weak self] in
             guard let self, self.editingPath != nil, self.wantsFocus,
-                let window = self.window, window.makeFirstResponder(self) else { return }
+                let window = self.window, window.makeFirstResponder(self)
+            else { return }
             self.wantsFocus = false
             (self.currentEditor() as? NSTextView)?.selectedRange = self.nameRange
         }
@@ -119,8 +120,12 @@ struct FileNameLabel: View {
             )
             .frame(height: 20)
         } else {
-            Text(hit.name).font(.system(size: 12)).lineLimit(lineLimit)
-                .multilineTextAlignment(centered ? .center : .leading)
+            HStack(spacing: 4) {
+                Text(hit.name).font(.system(size: 12)).lineLimit(lineLimit)
+                    .multilineTextAlignment(centered ? .center : .leading)
+                FileTagIndicators(url: hit.metadataPending == true ? nil : hit.url)
+                    .fixedSize()
+            }
         }
     }
 }

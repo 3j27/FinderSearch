@@ -404,8 +404,8 @@ enum LocalFiles {
                     guard let trashed else { throw CocoaError(.fileWriteUnknown) }
                     inverse = .move(trashed as URL, source)
                 case .tags(let url, let tags):
-                    let old = (try? url.resourceValues(forKeys: [.tagNamesKey]).tagNames) ?? []
-                    try (url as NSURL).setResourceValue(tags, forKey: .tagNamesKey)
+                    let old = FileTag.read(url).map(\.storageValue)
+                    try FileTag.write(tags, to: url)
                     inverse = .tags(url, old)
                 case .folder(let destination):
                     try FileManager.default.createDirectory(

@@ -1,0 +1,4 @@
+- Fix Go to Folder editing shortcuts.
+- Show colored tags in all views; preserve colors through Undo.
+- Drag folders into Favorites.
+- Refresh Dock icon registration.

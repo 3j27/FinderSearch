@@ -175,7 +175,8 @@ struct GalleryBrowser<RowMenu: View>: View {
                 QuickLook(url: hit.url).frame(maxWidth: .infinity, maxHeight: .infinity)
                     .modifier(CutAppearance(path: hit.path))
                 HStack {
-                    Text(hit.name).fontWeight(.medium); Spacer();
+                    Text(hit.name).fontWeight(.medium);
+                    FileTagIndicators(url: hit.url).fixedSize(); Spacer();
                     Text(hit.typeName).foregroundStyle(.secondary)
                 }.modifier(CutAppearance(path: hit.path))
                     .font(.system(size: 12)).padding(.horizontal, 20).padding(.vertical, 8)
@@ -295,6 +296,7 @@ struct ColumnBrowser<RowMenu: View>: View {
                         VStack {
                             FileThumbnail(hit: hit, size: 120);
                             Text(hit.name).font(.headline).multilineTextAlignment(.center);
+                            FileTagIndicators(url: hit.url).fixedSize();
                             Text(hit.typeName).font(.caption).foregroundStyle(.secondary)
                         }.padding(20).frame(width: 240)
                     }
