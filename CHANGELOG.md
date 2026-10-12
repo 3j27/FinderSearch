@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.8 — 2026-10-12
 
 - Upgrade to fsearch 0.2: more accurate results, smaller indexes, and better efficiency.
 
