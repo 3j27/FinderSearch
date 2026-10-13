@@ -186,7 +186,9 @@ struct BrowserView: View {
                     }
                 }
                 ToolbarItem {
-                    ViewModePicker(selection: $model.viewMode).frame(width: 150, height: 28)
+                    ViewModePicker(selection: $model.viewMode)
+                        .frame(width: 150, height: 28)
+                        .padding(.horizontal, 6)
                 }
                 ToolbarItem {
                     Menu {
@@ -296,7 +298,8 @@ struct BrowserView: View {
                 return nil
             }
             if searchFocused && event.keyCode == 125 && !model.sortedHits.isEmpty {
-                focusFiles(); model.selection = [model.sortedHits[0].path]; return nil
+                focusFiles(); model.select(model.sortedHits[0], extending: false, toggling: false)
+                model.selectionNavigation.send((model.sortedHits[0].path, false)); return nil
             }
             guard NSApp.keyWindow?.isSheet != true, model.preview == nil,
                 fileNavigationActive && !searchFocused,
@@ -392,8 +395,8 @@ struct BrowserView: View {
                     .marqueeSelection(model: model, focusFiles: focusFiles)
             }
             .scrollPosition(id: $model.scrollAnchor)
-            .onChange(of: model.focusedPath) { _, path in
-                if !model.marqueeSelecting, let path { proxy.scrollTo(path) }
+            .onReceive(model.selectionNavigation) { request in
+                proxy.scrollTo(request.path)
             }
         }
     }
@@ -587,7 +590,6 @@ struct BrowserView: View {
         if NSApp.keyWindow?.firstResponder is NSTextView {
             NSApp.keyWindow?.makeFirstResponder(nil)
         }
-        if model.viewMode == .icons || model.viewMode == .gallery { keyboardFocus = .files }
     }
     private func select(_ hit: Hit) {
         guard model.renaming?.path != hit.path else { return }

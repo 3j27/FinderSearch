@@ -211,8 +211,8 @@ struct GalleryBrowser<RowMenu: View>: View {
                         .marqueeSelection(model: model, focusFiles: {})
                 }.frame(height: 115)
                     .scrollPosition(id: $model.scrollAnchor)
-                    .onChange(of: model.focusedPath) { _, path in
-                        if !model.marqueeSelecting, let path { proxy.scrollTo(path) }
+                    .onReceive(model.selectionNavigation) { request in
+                        proxy.scrollTo(request.path)
                     }
             }
         }
@@ -265,7 +265,9 @@ struct ColumnBrowser<RowMenu: View>: View {
                                                 .frame(height: 24).padding(.horizontal, 8)
                                                 .background(
                                                     columns.indices.contains(index)
-                                                        && columns[index].selected == hit.path
+                                                        && (model.selection.contains(hit.path)
+                                                            || (column.url.path != model.location.path
+                                                                && columns[index].selected == hit.path))
                                                         ? Color.accentColor.opacity(0.22)
                                                         : Color.clear
                                                 )
@@ -324,12 +326,15 @@ struct ColumnBrowser<RowMenu: View>: View {
                 model.extraHits = columns.flatMap(\.items)
             }
         }
-        .onChange(of: model.focusedPath) { _, path in
-            guard let path,
+        .onReceive(model.selectionNavigation) { request in
+            guard !model.busy,
                 let index = columns.lastIndex(where: { $0.url.path == model.location.path }),
-                let hit = columns[index].items.first(where: { $0.path == path })
+                let hit = columns[index].items.first(where: { $0.path == request.path })
             else { return }
-            pick(hit, at: index)
+            model.scrollAnchor = hit.path
+            columns[index].scrollAnchor = hit.path
+            guard model.renaming == nil else { return }
+            present(hit, at: index, openFolder: !request.extending)
         }
         .task(id: model.location) {
             guard lastNavigation?.path != model.location.path else { return }
@@ -338,21 +343,35 @@ struct ColumnBrowser<RowMenu: View>: View {
         }
     }
     private func pick(_ hit: Hit, at index: Int) {
-        guard !model.busy else { return }
-        guard model.renaming?.path != hit.path else { return }
-        guard columns.indices.contains(index), columns[index].selected != hit.path else { return }
-        if columns[index].url.path == model.location.path {
-            guard model.hits.contains(where: { $0.path == hit.path }) else { return }
-        }
+        guard !model.busy, model.renaming?.path != hit.path,
+            columns.indices.contains(index)
+        else { return }
+        let column = columns[index]
+        let modifiers = NSEvent.modifierFlags
+        let extending = modifiers.contains(.shift), toggling = modifiers.contains(.command)
         focusFiles()
-        columns[index].selected = hit.path; columns = Array(columns.prefix(index + 1))
-        model.extraHits = columns.flatMap(\.items); model.selection = [hit.path]
-        guard hit.isFolder else { return }
-        model.navigate(hit.url);
+        if !extending && !toggling, column.selected == hit.path, model.selection == [hit.path] {
+            return
+        }
+        if column.url.path != model.location.path {
+            model.navigate(column.url, preservingSelection: true)
+            lastNavigation = model.location
+        }
+        model.extraHits = columns.flatMap(\.items)
+        model.select(hit, extending: extending, toggling: toggling, in: column.items)
+        present(hit, at: index, openFolder: !extending && !toggling)
+    }
+
+    private func present(_ hit: Hit, at index: Int, openFolder: Bool) {
+        columns[index].selected = model.selection.contains(hit.path) ? hit.path : nil
+        columns = Array(columns.prefix(index + 1))
+        model.extraHits = columns.flatMap(\.items)
+        guard openFolder, model.selection.count == 1, hit.isFolder else { return }
+        model.navigate(hit.url)
         lastNavigation = model.location
-        model.extraHits = columns.flatMap(\.items); model.selection = [hit.path]
+        model.extraHits = columns.flatMap(\.items)
+        model.selection = [hit.path]
         columns.append(FileColumn(url: model.location, items: model.sortedHits))
-        model.extraHits = columns.flatMap(\.items); model.selection = [hit.path]
     }
 }
 

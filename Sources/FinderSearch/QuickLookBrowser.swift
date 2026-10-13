@@ -68,6 +68,7 @@ extension SearchModel {
             return
         }
         let hit = previewItems[index + offset]
-        preview = hit; selection = [hit.path]; focusedPath = hit.path
+        preview = hit; select(hit, extending: false, toggling: false)
+        selectionNavigation.send((hit.path, false))
     }
 }

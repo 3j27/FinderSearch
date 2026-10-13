@@ -58,6 +58,8 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
     }
     var marqueeSelecting = false
     @Published var focusedPath: String?
+    /// Explicit navigation and editing requests scroll; mouse selection does not.
+    let selectionNavigation = PassthroughSubject<(path: String, extending: Bool), Never>()
     // Scroll bindings track their own position. Persisting that position must
     // not invalidate the browser and every visible file cell on each row.
     let scrollChanges = PassthroughSubject<Void, Never>()
@@ -266,7 +268,12 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
         visibleCache = visible
         return visible
     }
-    func select(_ hit: Hit, extending: Bool, toggling: Bool) {
+    func select(_ hit: Hit, extending: Bool, toggling: Bool, in items: [Hit]? = nil) {
+        let ordered = items ?? sortedHits
+        func row(_ path: String) -> Int? {
+            if let items { return items.firstIndex { $0.path == path } }
+            return rowsByPath[path]
+        }
         if toggling {
             if selection.contains(hit.path) {
                 selection.remove(hit.path)
@@ -275,11 +282,11 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
             }
             selectionAnchor = focusedPath
         } else if extending, let anchor = selectionAnchor,
-            let start = rowsByPath[anchor],
-            let end = rowsByPath[hit.path]
+            let start = row(anchor),
+            let end = row(hit.path)
         {
             focusedPath = hit.path
-            selection = Set(sortedHits[min(start, end)...max(start, end)].map(\.path))
+            selection = Set(ordered[min(start, end)...max(start, end)].map(\.path))
             selectionAnchor = anchor
         } else {
             focusedPath = hit.path; selection = [hit.path]; selectionAnchor = hit.path
@@ -303,6 +310,7 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
         } else {
             focusedPath = target; selection = [target]; selectionAnchor = target
         }
+        selectionNavigation.send((target, extending))
     }
     var ancestors: [URL] {
         var result: [URL] = [];
@@ -313,8 +321,16 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
         return result
     }
     func start() { if hits.isEmpty { schedule() }; watch() }
-    func navigate(_ url: URL, history: Bool = true) {
+    func navigate(_ url: URL, history: Bool = true, preservingSelection: Bool = false) {
         guard !busy else { return }
+        let previousSelection = (paths: selection, focus: focusedPath, anchor: selectionAnchor)
+        defer {
+            if preservingSelection {
+                selection = previousSelection.paths
+                focusedPath = previousSelection.focus
+                selectionAnchor = previousSelection.anchor
+            }
+        }
         cancelRename()
         mutationError = nil
         prefetchTask?.cancel()
@@ -739,6 +755,7 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
     func beginRename(_ hit: Hit) {
         guard !busy else { return }
         selection = [hit.path]; error = nil; renaming = hit
+        selectionNavigation.send((hit.path, false))
     }
     func cancelRename() {
         if renaming != nil { error = nil }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.9 — 2026-10-13
+
+- Fix Shift selection in columns and scrolling jumps when clicking files.
+- Improve view-picker spacing, show eject progress, and fix the permission button overlap.
+
 ## 0.4.8 — 2026-10-12
 
 - Upgrade to fsearch 0.2: more accurate results, smaller indexes, and better efficiency.
