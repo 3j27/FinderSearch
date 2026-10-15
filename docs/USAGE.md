@@ -137,6 +137,11 @@ not intentionally download cloud file contents.
   Command-T creates a tab; drag tabs to reorder, middle-click to close, and Command-Shift-T
   reopens the last closed tab. Command-N creates a window; Command-Shift-G opens Go to Folder.
   Command-Shift-period toggles hidden files; Command-R refreshes.
+- **Go shortcuts:** Command-Shift-F opens Recents; Command-Shift-O Documents;
+  Command-Shift-D Desktop; Option-Command-L Downloads; Command-Shift-H Home;
+  Command-Shift-L Library; Command-Shift-A Applications; Command-Shift-U Utilities.
+  Option-Command-O opens the folder chooser. Go menu destinations use the same
+  navigation as the sidebar.
 
 Recents uses indexed files modified within 30 days, limited to 1,000 returned
 candidates. Tags use Spotlight metadata and depend on its coverage. Search,

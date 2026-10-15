@@ -26,7 +26,7 @@ import UniformTypeIdentifiers
                     "n", modifiers: [.command, .shift]
                 ).disabled(model?.busy != false || model?.canWriteHere != true)
                 Button("Open…") { model?.chooseFolder() }.keyboardShortcut(
-                    "o", modifiers: [.command, .shift])
+                    "o", modifiers: [.command, .option])
             }
             CommandGroup(replacing: .undoRedo) {
                 Button(model?.undoStack.last.map { "Undo \($0.name)" } ?? "Undo") {
@@ -81,8 +81,12 @@ import UniformTypeIdentifiers
                 }.keyboardShortcut(.upArrow)
                 Button("Go to Folder…") { model?.goToFolder() }.keyboardShortcut(
                     "g", modifiers: [.command, .shift])
-                Button("Home") { model?.navigate(FileManager.default.homeDirectoryForCurrentUser) }
-                    .keyboardShortcut("h", modifiers: [.command, .shift])
+                Divider()
+                ForEach(GoDestination.allCases) { destination in
+                    Button(destination.title) { model?.sidebar(destination.route) }
+                        .keyboardShortcut(KeyEquivalent(destination.key), modifiers: destination.modifiers)
+                        .disabled(model?.busy != false)
+                }
             }
             CommandGroup(after: .toolbar) {
                 ForEach(FileViewMode.allCases.indices, id: \.self) { index in
