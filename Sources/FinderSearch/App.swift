@@ -315,10 +315,7 @@ struct BrowserView: View {
                 if event.keyCode == 49 { model.preview = model.selected; return nil }
                 if event.keyCode == 36 { model.rename(); return nil }
                 if event.keyCode == 53 { model.selection = []; return nil }
-                if (model.viewMode == .icons || model.viewMode == .gallery
-                    || (model.viewMode == .columns && [125, 126].contains(event.keyCode))),
-                    [123, 124, 125, 126].contains(event.keyCode)
-                {
+                if [123, 124, 125, 126].contains(event.keyCode) {
                     let stride = model.viewMode == .icons ? gridColumns : 1
                     let delta =
                         event.keyCode == 123
