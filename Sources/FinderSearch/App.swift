@@ -271,7 +271,7 @@ struct BrowserView: View {
             }
         }
         .onChange(of: keyboardFocus) { _, focus in
-            if focus == .search { fileNavigationActive = false }
+            if focus == .search { fileNavigationActive = false; model.resetFilenamePrefix() }
         }
         .onChange(of: model.query) { _, text in
             if model.isSearch && model.sort != .relevance { model.sort = .relevance }
@@ -323,6 +323,16 @@ struct BrowserView: View {
                         by: delta, extending: event.modifierFlags.contains(.shift))
                     return nil
                 }
+            }
+            if event.modifierFlags.intersection([.command, .control, .function]).isEmpty,
+                let text = event.characters, !text.isEmpty,
+                text.unicodeScalars.allSatisfy({
+                    !CharacterSet.controlCharacters.contains($0)
+                        && !($0.value >= 0xF700 && $0.value <= 0xF8FF)
+                })
+            {
+                model.selectFilenamePrefix(text, at: event.timestamp)
+                return nil
             }
             if event.modifierFlags.contains(.command), event.keyCode == 125 {
                 model.open(); return nil
@@ -587,6 +597,7 @@ struct BrowserView: View {
         if !model.selection.contains(hit.path) { model.selection = [hit.path] }
     }
     private func focusFiles() {
+        model.resetFilenamePrefix()
         keyboardFocus = nil; fileNavigationActive = true
         if NSApp.keyWindow?.firstResponder is NSTextView {
             NSApp.keyWindow?.makeFirstResponder(nil)
