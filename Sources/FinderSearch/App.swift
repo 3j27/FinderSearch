@@ -84,7 +84,9 @@ import UniformTypeIdentifiers
                 Divider()
                 ForEach(GoDestination.allCases) { destination in
                     Button(destination.title) { model?.sidebar(destination.route) }
-                        .keyboardShortcut(KeyEquivalent(destination.key), modifiers: destination.modifiers)
+                        .keyboardShortcut(
+                            KeyEquivalent(destination.key), modifiers: destination.modifiers
+                        )
                         .disabled(model?.busy != false)
                 }
             }

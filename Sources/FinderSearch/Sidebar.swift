@@ -109,7 +109,10 @@ struct BrowserSidebar: View, Equatable {
                 Divider()
                 Button {
                     NSWorkspace.shared.open(
-                        URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
+                        URL(
+                            string:
+                                "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+                        )!)
                 } label: {
                     Text("Enable Full Disk Access…")
                         .font(.caption).multilineTextAlignment(.leading)

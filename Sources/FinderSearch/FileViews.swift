@@ -266,8 +266,10 @@ struct ColumnBrowser<RowMenu: View>: View {
                                                 .background(
                                                     columns.indices.contains(index)
                                                         && (model.selection.contains(hit.path)
-                                                            || (column.url.path != model.location.path
-                                                                && columns[index].selected == hit.path))
+                                                            || (column.url.path
+                                                                != model.location.path
+                                                                && columns[index].selected
+                                                                    == hit.path))
                                                         ? Color.accentColor.opacity(0.22)
                                                         : Color.clear
                                                 )

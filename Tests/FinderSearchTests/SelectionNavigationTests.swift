@@ -53,11 +53,13 @@ final class SelectionNavigationTests: XCTestCase {
         let model = SearchModel()
         model.navigate(root)
         try await loaded(model)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 300),
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 300),
             styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView:
-            ColumnBrowser(model: model, focusFiles: {}, rowMenu: { _ in EmptyView() }))
+        window.contentView = NSHostingView(
+            rootView:
+                ColumnBrowser(model: model, focusFiles: {}, rowMenu: { _ in EmptyView() }))
         window.makeKeyAndOrderFront(nil)
         defer { window.orderOut(nil); window.contentView = nil }
         try await Task.sleep(for: .milliseconds(100))
@@ -91,7 +93,8 @@ final class SelectionNavigationTests: XCTestCase {
         model.select(anchor, extending: false, toggling: false, in: items)
         model.navigate(root, preservingSelection: true)
         model.select(end, extending: true, toggling: false, in: items)
-        XCTAssertEqual(Set(model.selection.map { URL(fileURLWithPath: $0).lastPathComponent }),
+        XCTAssertEqual(
+            Set(model.selection.map { URL(fileURLWithPath: $0).lastPathComponent }),
             ["a.txt", "b.txt", "c.txt"])
     }
 }
