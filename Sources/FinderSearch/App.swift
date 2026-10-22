@@ -129,7 +129,6 @@ struct BrowserView: View {
     @State private var fileNavigationActive = false
     @State private var keyMonitor: Any?
     @State private var browserWindow: NSWindow?
-    @State private var iconSize: Double = 64
     @State private var gridColumns = 5
     private let tags = SidebarTags.values
     var body: some View {
@@ -277,6 +276,9 @@ struct BrowserView: View {
             if model.isSearch && model.sort != .relevance { model.sort = .relevance }
         }
         .task(id: model.id) { await model.monitor() }
+        .task(id: model.id.uuidString + model.route + (model.isSearch ? ":search" : ":browse")) {
+            await model.loadFinderSettings()
+        }
         .sheet(item: $model.conflict) { conflict in
             ConflictSheet(conflict: conflict) { choice, all in
                 model.resolveConflict(choice, applyToAll: all)
@@ -360,7 +362,7 @@ struct BrowserView: View {
             ColumnBrowser(model: model, focusFiles: { focusFiles() }, rowMenu: rowActions).id(
                 model.id)
         } else if (model.loading || model.searching) && model.sortedHits.isEmpty {
-            FolderLoadingSkeleton(mode: model.viewMode, iconSize: iconSize)
+            FolderLoadingSkeleton(mode: model.viewMode, iconSize: model.iconSize)
         } else if model.sortedHits.isEmpty {
             ContentUnavailableView {
                 Label(
@@ -387,17 +389,17 @@ struct BrowserView: View {
             iconScroll(minHeight: geometry.size.height)
                 .onAppear { updateColumns(geometry.size.width) }
                 .onChange(of: geometry.size.width) { _, width in updateColumns(width) }
-                .onChange(of: iconSize) { _, _ in updateColumns(geometry.size.width) }
+                .onChange(of: model.iconSize) { _, _ in updateColumns(geometry.size.width) }
         }
     }
     private func updateColumns(_ width: Double) {
-        gridColumns = max(1, Int((width - 36) / (iconSize + 69)))
+        gridColumns = max(1, Int((width - 36) / (model.iconSize + 69)))
     }
     private func iconScroll(minHeight: Double) -> some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: iconSize + 55), spacing: 14)],
+                    columns: [GridItem(.adaptive(minimum: model.iconSize + 55), spacing: 14)],
                     alignment: .leading, spacing: 18
                 ) {
                     ForEach(model.sortedHits) { hit in iconCell(hit) }
@@ -413,8 +415,8 @@ struct BrowserView: View {
     }
     private func iconCell(_ hit: Hit) -> some View {
         VStack(spacing: 6) {
-            FileThumbnail(hit: hit, size: iconSize).frame(
-                width: iconSize + 10, height: iconSize + 10)
+            FileThumbnail(hit: hit, size: model.iconSize).frame(
+                width: model.iconSize + 10, height: model.iconSize + 10)
             FileNameLabel(model: model, hit: hit, lineLimit: 2, centered: true)
                 .frame(height: 32, alignment: .top)
         }
@@ -499,7 +501,7 @@ struct BrowserView: View {
             Spacer()
             if model.viewMode == .icons {
                 Image(systemName: "square").font(.system(size: 8));
-                Slider(value: $iconSize, in: 40...96).frame(width: 100).accessibilityLabel(
+                Slider(value: $model.iconSize, in: 16...512).frame(width: 100).accessibilityLabel(
                     "Icon Size");
                 Image(systemName: "square").font(.system(size: 13))
             }

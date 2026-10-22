@@ -258,3 +258,21 @@ the indicators immediately; hover over the dots to see the tag names.
 Go to Folder supports **Cmd+A**, **Cmd+C**, **Cmd+X**, **Cmd+V**, and Undo/Redo.
 
 When the file browser has focus, type a filename prefix to select and reveal a matching item. Type quickly to extend the prefix; pause for one second to start another. Repeat a single letter to cycle through matches. Arrow keys move the selection, and Shift-arrow extends it. These keys leave search and rename text fields available for editing.
+
+
+### Finder folder view settings
+
+When you enter a folder, FinderSearch reads Finder's `.DS_Store` preferences from
+both the folder and its parent. Supported settings are the saved view mode, list
+column widths/order/visibility, list sort column/direction, list text size, and
+icon-view icon size. Only columns that FinderSearch supports are imported; the
+Name column stays visible. Existing browsing-session sort choices take precedence.
+
+These files are read without modification. Resizing a column in FinderSearch
+stays in effect while you browse that folder; reopening the folder reads Finder's
+saved widths again. Missing, unreadable, or unsupported settings fall back to
+FinderSearch defaults. Search results use FinderSearch's regular column layout.
+Window geometry, custom icon positions/backgrounds, and Finder-only columns are
+not imported.
+
+Format reference: [ds_store documentation](https://ds-store.readthedocs.io/en/latest/).

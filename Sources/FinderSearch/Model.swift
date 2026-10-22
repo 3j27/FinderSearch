@@ -101,7 +101,43 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
         FileViewMode(rawValue: UserDefaults.standard.string(forKey: "viewMode") ?? "icons")
         ?? .icons
     {
-        didSet { UserDefaults.standard.set(viewMode.rawValue, forKey: "viewMode") }
+        didSet {
+            if !applyingFinderSettings {
+                UserDefaults.standard.set(viewMode.rawValue, forKey: "viewMode")
+            }
+        }
+    }
+    private var applyingFinderSettings = false
+    private var useSnapshotOrderingForFolder = false
+    private var defaultIconSize: Double = 64
+    @Published private(set) var finderSettings: FinderFolderSettings?
+    @Published var iconSize: Double = 64 {
+        didSet { if !applyingFinderSettings { defaultIconSize = iconSize } }
+    }
+
+    func loadFinderSettings() async {
+        let folder = location, requestedRoute = route
+        finderSettings = nil
+        guard requestedRoute == folder.path, !isSearch else { return }
+        let previousView = viewMode, previousSort = sort, previousDirection = ascending
+        let previousIconSize = iconSize
+        let hadSnapshot = useSnapshotOrderingForFolder
+        let defaultView =
+            FileViewMode(rawValue: UserDefaults.standard.string(forKey: "viewMode") ?? "icons")
+            ?? .icons
+        let settings = try? await BackgroundWork.run { FinderFolderSettings.read(folder: folder) }
+        guard !Task.isCancelled, location == folder, route == requestedRoute, !isSearch else {
+            return
+        }
+        finderSettings = settings
+        applyingFinderSettings = true
+        defer { applyingFinderSettings = false }
+        if viewMode == previousView { viewMode = settings?.view ?? defaultView }
+        if !hadSnapshot, sort == previousSort, ascending == previousDirection {
+            if let order = settings?.sort { sort = order }
+            if let direction = settings?.ascending { ascending = direction }
+        }
+        if iconSize == previousIconSize { iconSize = settings?.iconSize ?? defaultIconSize }
     }
     @Published var sort: FileSort = .name { didSet { invalidateDerived(preserveOrder: true) } }
     @Published var ascending = true { didSet { invalidateDerived(preserveOrder: true) } }
@@ -371,7 +407,12 @@ struct FileJournal { let name: String; let operations: [FileMutation] }
         changingLocation = true
         if history && url != location { backStack.append(location); forwardStack = [] }
         if url.standardizedFileURL != location { scrollAnchor = nil; scrollOffset = 0 }
+        if url.standardizedFileURL != location || route != url.standardizedFileURL.path {
+            finderSettings = nil
+        }
         location = url.standardizedFileURL; route = location.path
+        useSnapshotOrderingForFolder =
+            snapshots[SnapshotKey(route: route, hidden: showHidden)] != nil
         extraHits = []; scope = ""; query = ""; fileType = ""; selection = []; sort = .name;
         ascending = true
         if let snapshot = snapshots[SnapshotKey(route: route, hidden: showHidden)] {

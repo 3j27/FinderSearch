@@ -76,6 +76,46 @@ import Combine
         private var navigation: AnyCancellable?
         private var restoredRoute: String?
         private var displayedTab: UUID?
+        private var layoutFolder: String?
+        private var appliedSettings: FinderFolderSettings?
+        private func applyFinderLayout(to table: BrowserTable) {
+            let folder =
+                parent.model.id.uuidString + parent.model.route
+                + (parent.model.isSearch ? ":search" : "")
+            let settings = parent.model.isSearch ? nil : parent.model.finderSettings
+            guard layoutFolder != folder || appliedSettings != settings else { return }
+            layoutFolder = folder; appliedSettings = settings
+            let defaults: [(String, Double, Double)] = [
+                ("name", 300, 180), ("modified", 180, 145), ("size", 85, 70),
+                ("kind", 130, 90), ("where", 200, 130),
+            ]
+            let configured = settings?.columns ?? []
+            table.columnAutoresizingStyle =
+                configured.isEmpty ? .lastColumnOnlyAutoresizingStyle : .noColumnAutoresizing
+            for (key, width, minimum) in defaults {
+                guard
+                    let column = table.tableColumn(
+                        withIdentifier: NSUserInterfaceItemIdentifier(key))
+                else { continue }
+                let preference = configured.first { $0.identifier == key }
+                column.minWidth = preference?.width == nil ? minimum : 24
+                column.width = preference?.width ?? width
+                column.isHidden =
+                    key == "where"
+                    ? !parent.model.isSearch : (key != "name" && preference?.visible == false)
+            }
+            let order =
+                configured.map(\.identifier)
+                + defaults.map { $0.0 }.filter { key in
+                    !configured.contains { $0.identifier == key }
+                }
+            for (position, key) in order.enumerated() {
+                let current = table.column(withIdentifier: NSUserInterfaceItemIdentifier(key))
+                if current != position { table.moveColumn(current, toColumn: position) }
+            }
+            table.rowHeight = max(24, (settings?.textSize ?? 12) + 10)
+            table.reloadData()
+        }
         init(_ parent: FileList) {
             self.parent = parent
             super.init()
@@ -129,6 +169,7 @@ import Combine
             }
             if renameField?.editingPath != nil { renameField?.cancelEditing() }
             updating = true; defer { updating = false }
+            applyFinderLayout(to: table)
             let next = parent.model.sortedHits
             table.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("where"))?.isHidden =
                 !parent.model.isSearch
@@ -204,6 +245,8 @@ import Combine
                 tableView.makeView(withIdentifier: tableColumn.identifier, owner: self) as? FileCell
                 ?? FileCell(identifier: tableColumn.identifier, withIcon: key == "name")
             cell.path = hit.path
+            cell.textField?.font = .systemFont(
+                ofSize: parent.model.isSearch ? 12 : (parent.model.finderSettings?.textSize ?? 12))
             cell.alphaValue = parent.clipboard.opacity(for: hit.path)
             switch key {
             case "name": cell.textField?.stringValue = hit.name
