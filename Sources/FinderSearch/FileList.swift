@@ -74,6 +74,7 @@ import Combine
         private var actions: [Int: @MainActor () -> Void] = [:]
         var scrollObserver: NSObjectProtocol?
         private var navigation: AnyCancellable?
+        private var pendingScrollPath: String?
         private var restoredRoute: String?
         private var displayedTab: UUID?
         private var layoutFolder: String?
@@ -123,10 +124,12 @@ import Combine
         }
         private func observeNavigation() {
             navigation = parent.model.selectionNavigation.sink { [weak self] request in
-                guard let self, let table = self.table,
-                    let row = self.rowByPath[request.path]
-                else { return }
-                table.scrollRowToVisible(row)
+                guard let self else { return }
+                self.pendingScrollPath = request.path
+                if let table = self.table, let row = self.rowByPath[request.path] {
+                    table.scrollRowToVisible(row)
+                    self.pendingScrollPath = nil
+                }
             }
         }
         func update() {
@@ -179,6 +182,10 @@ import Combine
                     items.enumerated().map { ($0.element.path, $0.offset) },
                     uniquingKeysWith: { first, _ in first })
                 table.reloadData()
+            }
+            if let path = pendingScrollPath, let row = rowByPath[path] {
+                table.scrollRowToVisible(row)
+                pendingScrollPath = nil
             }
             let selected = IndexSet(parent.model.selection.compactMap { rowByPath[$0] })
             if table.selectedRowIndexes != selected {
@@ -318,10 +325,12 @@ import Combine
             parent.model.hoverFolder(
                 operation == .on && items.indices.contains(row) && items[row].isFolder
                     ? items[row].url : nil)
-            if operation == .on {
-                guard items.indices.contains(row), items[row].isFolder else { return [] }
-            } else {
-                guard row >= items.count, parent.model.canWriteHere else { return [] }
+            guard
+                let destination = FileListDrop.destination(
+                    row: row, operation: operation, items: items,
+                    location: parent.model.canWriteHere ? parent.model.location : nil)
+            else { return [] }
+            if destination == parent.model.location {
                 tableView.setDropRow(-1, dropOperation: .on)
             }
             return NSEvent.modifierFlags.contains(.option)
@@ -332,14 +341,11 @@ import Combine
             dropOperation operation: NSTableView.DropOperation
         ) -> Bool {
             parent.model.springLoader.cancel()
-            let destination: URL
-            if operation == .on && items.indices.contains(row) && items[row].isFolder {
-                destination = items[row].url
-            } else if parent.model.canWriteHere && (row == -1 || row >= items.count) {
-                destination = parent.model.location
-            } else {
-                return false
-            }
+            guard
+                let destination = FileListDrop.destination(
+                    row: row, operation: operation, items: items,
+                    location: parent.model.canWriteHere ? parent.model.location : nil)
+            else { return false }
             let urls =
                 info.draggingPasteboard.readObjects(
                     forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
@@ -502,4 +508,17 @@ import Combine
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     deinit { iconTask?.cancel() }
+}
+
+/// AppKit proposes -1 for the table background, including an empty folder.
+enum FileListDrop {
+    static func destination(
+        row: Int, operation: NSTableView.DropOperation, items: [Hit], location: URL?
+    ) -> URL? {
+        if operation == .on, items.indices.contains(row) {
+            return items[row].isFolder ? items[row].url : nil
+        }
+        guard row == -1 || operation == .above || row >= items.count else { return nil }
+        return location
+    }
 }
